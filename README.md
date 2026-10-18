@@ -180,6 +180,9 @@ Otros ajustes:
 
 El CSV crudo (2 MB) va en Git, para que el pipeline corra en Codespaces y en CI sin
 configurar un remoto. Las salidas del pipeline (datos procesados, modelo, métricas) no van a
-Git: `dvc.lock` guarda su hash md5, y `dvc repro` las regenera y verifica. Para compartir el
+Git: `dvc.lock` guarda su hash md5, y `dvc repro` las regenera y verifica. El lock se
+generó en Linux (el mismo entorno de Codespaces y CI): ahí `python main.py` reproduce
+exactamente esos hashes, incluido el modelo. En Windows el `.pkl` difiere en bytes, aunque
+no en métricas. Para compartir el
 cache entre máquinas basta con agregar un remoto (`dvc remote add -d storage gdrive://…`) y
 ejecutar `dvc push`.

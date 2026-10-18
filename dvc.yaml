@@ -1,6 +1,8 @@
 # dvc.yaml — El mismo pipeline de main.py declarado como DAG para DVC (Unidad 3).
 # DVC solo re-ejecuta una etapa si cambian sus deps o params, y dvc.lock guarda
 # el hash (md5) de cada dato y modelo generado: así se versionan sin subirlos a Git.
+# dvc.lock se genera en Linux (Codespaces / CI): el .pkl no es idéntico byte a
+# byte entre sistemas operativos, aunque sus métricas sí lo son.
 #
 #   dvc repro          # ejecuta lo que cambió
 #   dvc dag            # muestra el grafo de etapas
@@ -65,8 +67,6 @@ stages:
           - model.scoring
     outs:
       - artifacts/modelo_infartos.pkl
-      - artifacts/modelo_registrado.json:
-          cache: false
 
   evaluate:
     cmd: python evaluate/run.py
@@ -82,9 +82,6 @@ stages:
           - negocio
     metrics:
       - artifacts/eval_metrics.json:
-          cache: false
-    plots:
-      - reportes/reporte_evaluacion.png:
           cache: false
 
   drift:

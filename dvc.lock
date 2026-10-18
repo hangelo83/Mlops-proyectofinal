@@ -7,14 +7,17 @@ stages:
       hash: md5
       md5: d6514153cd4ffc9791c36e3f05ebbbb3
       size: 2817603
+      isexec: true
     - path: data/run.py
       hash: md5
       md5: e8a9f5aaac188ec519da33d60239a403
       size: 1468
+      isexec: true
     - path: src/data_loader.py
       hash: md5
       md5: af1ed1507413bdcc2b928186d1ebc20c
       size: 1342
+      isexec: true
     outs:
     - path: data/infartos_data_raw.csv
       hash: md5
@@ -31,10 +34,12 @@ stages:
       hash: md5
       md5: 94ca885ac6a3f688f258672e1fcb41b2
       size: 2587
+      isexec: true
     - path: src/preprocessing.py
       hash: md5
       md5: f02492e82c31609506b4598d739a6033
       size: 4844
+      isexec: true
     params:
       config.yaml:
         main.random_state: 123
@@ -58,6 +63,7 @@ stages:
       hash: md5
       md5: 653d9e9e7ac195b4743aadf9a7879044
       size: 2183
+      isexec: true
     params:
       config.yaml:
         data.test_size: 0.2
@@ -97,10 +103,12 @@ stages:
       hash: md5
       md5: 217535515e6817f316d7baa88857c741
       size: 8094
+      isexec: true
     - path: src/preprocessing.py
       hash: md5
       md5: f02492e82c31609506b4598d739a6033
       size: 4844
+      isexec: true
     params:
       config.yaml:
         model.cv_folds: 5
@@ -121,19 +129,15 @@ stages:
     outs:
     - path: artifacts/modelo_infartos.pkl
       hash: md5
-      md5: 244db40344a7f5497f72953b5d15963c
-      size: 118890
-    - path: artifacts/modelo_registrado.json
-      hash: md5
-      md5: cdf4cd651722708e887f5a4eaf99c9d5
-      size: 170
+      md5: f846ad9ce3dd7cae835ad6ca7c7c0d62
+      size: 118924
   evaluate:
     cmd: python evaluate/run.py
     deps:
     - path: artifacts/modelo_infartos.pkl
       hash: md5
-      md5: 244db40344a7f5497f72953b5d15963c
-      size: 118890
+      md5: f846ad9ce3dd7cae835ad6ca7c7c0d62
+      size: 118924
     - path: data/infartos_test.csv
       hash: md5
       md5: 754ea6a336978b2be1fbf46484d78e32
@@ -142,6 +146,7 @@ stages:
       hash: md5
       md5: 468e855446720239eb108633429c6494
       size: 8440
+      isexec: true
     params:
       config.yaml:
         model.auc_threshold: 0.8
@@ -155,10 +160,6 @@ stages:
       hash: md5
       md5: 61daf7c9ecb92f772b2da093d4d7f6c3
       size: 245
-    - path: reportes/reporte_evaluacion.png
-      hash: md5
-      md5: 956e0e4f7c460ee0c033667d509d1311
-      size: 54758
   drift:
     cmd: python drift/run.py
     deps:
@@ -174,6 +175,7 @@ stages:
       hash: md5
       md5: 78d631805357fd707901baf9e10ff9a0
       size: 6821
+      isexec: true
     params:
       config.yaml:
         drift.drift_threshold: 0.3
