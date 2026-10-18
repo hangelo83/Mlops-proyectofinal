@@ -15,3 +15,6 @@ reportes/
 mlruns/
 mlartifacts/
 mlflow.db
+
+# Archivos temporales de Office
+~$*
