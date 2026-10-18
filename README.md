@@ -86,6 +86,46 @@ sanos al programa de prevención. Con los supuestos de costo de `config.yaml`
 (US$20,000 por infarto no detectado y US$300 por chequeo preventivo), el modelo cuesta
 US$1.27 M frente a los US$3.14 M de no hacer nada (157 × US$20,000).
 
+### Comparativa de modelos
+
+La línea base (Regresión Logística con los parámetros de `MODELOS_DEFAULT` de la Unidad 2)
+se entrena en cada ejecución con el mismo balanceo y la misma validación cruzada que el
+tuning, y se evalúa en el mismo test. El test se usa solo para la línea base y el modelo
+elegido; la selección se hace por validación cruzada.
+
+| Modelo | Train AUC | CV F1 | CV Recall | CV AUC | Test AUC | Test Recall | Test F1 |
+|---|---|---|---|---|---|---|---|
+| Baseline: Regresión Logística | 0.823 | **0.096** | 0.770 | 0.820 | 0.825 | 0.815 | **0.102** |
+| Random Forest (GridSearchCV) | 0.828 | 0.092 | 0.783 | **0.821** | — | — | — |
+| ★ Random Forest (RandomizedSearchCV) | 0.823 | **0.096** | 0.780 | 0.819 | **0.828** | 0.815 | 0.099 |
+
+★ Modelo en Production. Fuente: `artifacts/comparativa_modelos.json` y `artifacts/eval_metrics.json`.
+
+**El Random Forest no supera a la línea base**: las diferencias (0.003 de AUC, 0.002 de
+F1) están dentro del ruido. Con 7 variables codificadas en tramos, el techo lo ponen los
+datos y no el algoritmo; train y validación casi iguales confirman que no hay sobreajuste.
+Se mantiene el Random Forest porque es el modelo del notebook del caso y aprueba el gate;
+la mejora siguiente tiene que venir de variables continuas, no de más tuning.
+
+### Metodología
+
+| Decisión | Elegido | Alternativas y por qué se descartaron |
+|---|---|---|
+| Variables | Las 7 codificadas del notebook del caso | `Flag_fumador` (31% vacíos); `Genero` y `Zona_residencia` aportan poco y se reservan para auditar fairness |
+| Nulos de IMC | Uniforme en promedio ± desviación (notebook) | Mediana (Unidad 10): equivalente, se prefirió la regla del caso |
+| Balanceo | Undersampling dentro del `Pipeline` | SMOTE y oversampling: menor recall (0.69 y 0.73 vs 0.78) con 54 veces más filas (comparación en el notebook de EDA) |
+| Algoritmo | Random Forest | Regresión Logística (empata, queda como línea base); XGBoost del notebook (recall similar, agrega una dependencia) |
+| Tuning | GridSearchCV y RandomizedSearchCV en MLflow, se elige por CV F1 | Elegir por test (fuga de información) |
+| Umbral del gate | AUC ≥ 0.80 y recall ≥ 0.70 | F1 ≥ 0.70 del template de la Unidad 10 (inalcanzable con 1.8% de positivos) |
+
+### Fairness
+
+`evaluate/run.py` audita el recall por género y zona de residencia, que el modelo no usa,
+y lo guarda en `reportes/fairness.json` y en MLflow. El modelo marca una proporción pareja
+de cada grupo (27–29%), pero el recall varía: hombres 0.846 y mujeres 0.793, rural 0.883 y
+urbano 0.750. Con unos 80 infartos por grupo la diferencia puede ser ruido, pero queda
+registrada como riesgo a vigilar. Detalle en [MODEL_CARD.md](MODEL_CARD.md).
+
 ## Uso en producción
 
 ```bash
@@ -134,14 +174,14 @@ imagen Docker.
 | Unidad | Tema | Dónde está en este proyecto |
 |---|---|---|
 | 1 | Introducción a MLOps, repositorio base | Repositorio Git, `README.md`, `requirements.txt`, `.devcontainer/` para Codespaces |
-| 2 | Ingeniería de software para DS | `src/` modular (`cargar_datos`, `COLUMNAS_REQUERIDAS`, `imputar_imc`, `obtener_balanceador` con el `sampler_map` de `dividir_y_balancear`), logging, `tests/test_preprocessing.py` |
+| 2 | Ingeniería de software para DS | `src/` modular (`cargar_datos`, `COLUMNAS_REQUERIDAS`, `imputar_imc`, `obtener_balanceador` con el `sampler_map` de `dividir_y_balancear`), línea base con `MODELOS_DEFAULT` (Regresión Logística), logging, `tests/test_preprocessing.py` |
 | 3 | Versionamiento de datos y modelos | `dvc.yaml` + `dvc.lock` (hash de cada dato y modelo), MLflow tracking, `src/comparar_runs.py` |
 | 4 | Pipelines reproducibles | Etapas separadas con validación de salida (`validar_schema`), gate de recall, reporte PNG y costo FN/FP de `evaluate/run.py` |
 | 5 | Docker + FastAPI | `api/` (`app.py`, `predictor.py` con la clase `Predictor`, `schemas.py`), `preprocesamiento.json`, `Dockerfile`, `tests/test_api.py` |
-| 6 | Ajuste y seguimiento | GridSearchCV y RandomizedSearchCV como runs comparables, selección del mejor, Model Registry → Staging |
+| 6 | Ajuste y seguimiento | Línea base sin tuning + GridSearchCV y RandomizedSearchCV como runs comparables, selección del mejor, Model Registry → Staging |
 | 7 | CI/CD | `.github/workflows/ml_pipeline.yml` (lint-and-test → ml-pipeline → build-docker), `setup.cfg`, `Makefile` |
 | 8 | Deployment pre-producción | `docker-compose.preprod.yml` (mlflow → trainer → api), `Dockerfile.trainer`, `deploy.sh` con rollback, `src/manage_versions.py`, `tests/smoke/` |
-| 9 | Monitoreo y mantenimiento | `drift/run.py` (Evidently `DataDriftPreset`, `calcular_psi`, `clasificar_psi`), `.github/workflows/monitoreo_drift.yml` semanal |
+| 9 | Monitoreo y mantenimiento | `drift/run.py` (Evidently `DataDriftPreset`, `calcular_psi`, `clasificar_psi`), `.github/workflows/monitoreo_drift.yml` semanal; `calcular_metricas` aplicada por subgrupo para fairness |
 | 10 | Integración end-to-end | `main.py` (orquestador de 7 etapas), `config.yaml`, `check_data/` |
 
 ## Correcciones al template de la Unidad 10
@@ -176,6 +216,7 @@ Otros ajustes:
 ├── src/                     código compartido (pipeline + API)
 ├── api/                     FastAPI
 ├── tests/                   unitarios, API y smoke
+├── MODEL_CARD.md            ficha del modelo: datos, métricas, fairness, limitaciones
 ├── notebooks/01_eda_infartos.ipynb   análisis exploratorio del caso
 ├── docs/presentacion_mlops_infartos.pptx   presentación final (10 láminas, con notas del orador)
 ├── dvc.yaml · dvc.lock      pipeline DVC

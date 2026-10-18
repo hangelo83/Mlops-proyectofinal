@@ -67,13 +67,19 @@ stages:
           - model.scoring
     outs:
       - artifacts/modelo_infartos.pkl
+      - artifacts/modelo_baseline.pkl
+      - artifacts/comparativa_modelos.json:
+          cache: false
 
   evaluate:
     cmd: python evaluate/run.py
     deps:
       - evaluate/run.py
+      - src/metricas.py
       - artifacts/modelo_infartos.pkl
+      - artifacts/modelo_baseline.pkl
       - data/infartos_test.csv
+      - data/infartos_data_raw.csv
     params:
       - config.yaml:
           - model.auc_threshold
@@ -82,6 +88,9 @@ stages:
           - negocio
     metrics:
       - artifacts/eval_metrics.json:
+          cache: false
+    outs:
+      - reportes/fairness.json:
           cache: false
 
   drift:

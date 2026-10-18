@@ -6,6 +6,9 @@ Quality gate (Unidad 10 + validar_recall de la Unidad 4): el pipeline falla si
 AUC, Recall o F1 quedan bajo su umbral. Si aprueba, la versión registrada pasa
 de Staging a Production (Unidad 8).
 
+También compara contra la línea base en el mismo test y audita fairness por
+subgrupo (género y zona de residencia) → reportes/fairness.json.
+
 Ejecutar: python evaluate/run.py
 """
 import argparse
@@ -27,7 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src import estilo_graficos as G                                     # noqa: E402
 from src.config import CONFIG                                            # noqa: E402
 from src.manage_versions import agregar_tags, promover_a_produccion      # noqa: E402
-from src.preprocessing import FEATURES, TARGET                           # noqa: E402
+from src.metricas import metricas_por_grupo                              # noqa: E402
+from src.preprocessing import FEATURES, ID_COL, TARGET                   # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | EVALUATE | %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
@@ -37,6 +41,31 @@ REPORTS   = Path("reportes")
 CFG       = CONFIG["model"]
 COSTO_FN  = CONFIG["negocio"]["costo_fn"]
 COSTO_FP  = CONFIG["negocio"]["costo_fp"]
+# Atributos que el modelo NO usa, auditados para detectar trato desigual
+GRUPOS_FAIRNESS = ["Genero", "Zona_residencia"]
+
+
+def evaluar_baseline(X_test, y_test) -> dict:
+    """Métricas de la línea base (random_forest/run.py) sobre el mismo test."""
+    path = ARTIFACTS / "modelo_baseline.pkl"
+    if not path.exists():
+        return {}
+    with open(path, "rb") as f:
+        base = pickle.load(f)
+    pred, proba = base.predict(X_test), base.predict_proba(X_test)[:, 1]
+    return {
+        "test_auc":       round(roc_auc_score(y_test, proba), 4),
+        "test_recall":    round(recall_score(y_test, pred, zero_division=0), 4),
+        "test_precision": round(precision_score(y_test, pred, zero_division=0), 4),
+        "test_f1":        round(f1_score(y_test, pred, zero_division=0), 4),
+    }
+
+
+def auditoria_fairness(df_test: pd.DataFrame, y_pred) -> dict:
+    """Recall y tasa de marcados por subgrupo; los atributos vienen del CSV crudo vía ID."""
+    crudo = pd.read_csv(CONFIG["data"]["raw_path"], usecols=[ID_COL] + GRUPOS_FAIRNESS)
+    df = df_test[[ID_COL, TARGET]].merge(crudo, on=ID_COL, how="left")
+    return {col: metricas_por_grupo(df[col], df[TARGET], y_pred) for col in GRUPOS_FAIRNESS}
 
 
 def parse_args():
@@ -145,6 +174,31 @@ if __name__ == "__main__":
     print(f"  {'costo_estimado':<20}: ${metricas['costo_estimado']:,}")
     print("\n" + classification_report(y_test, y_pred, target_names=["Sin infarto", "Infarto"]))
 
+    # Línea base: todo modelo nuevo se compara con un baseline simple
+    baseline = evaluar_baseline(X_test, y_test)
+    if baseline:
+        metricas["baseline"] = baseline
+        print("="*50)
+        print(" MODELO vs LÍNEA BASE (Regresión Logística)")
+        print("="*50)
+        for k in ["test_auc", "test_recall", "test_precision", "test_f1"]:
+            print(f"  {k:<16}: {metricas[k]:.4f}  vs  {baseline[k]:.4f}")
+
+    # Fairness por subgrupo
+    fairness = auditoria_fairness(df_test, y_pred)
+    REPORTS.mkdir(exist_ok=True)
+    with open(REPORTS / "fairness.json", "w", encoding="utf-8", newline="\n") as f:
+        json.dump(fairness, f, indent=2, ensure_ascii=False)
+    print("\n" + "="*50)
+    print(" FAIRNESS POR SUBGRUPO (test)")
+    print("="*50)
+    for col, grupos in fairness.items():
+        for grupo, m in grupos.items():
+            nota = "  (muestra pequeña)" if m["muestra_pequena"] else ""
+            print(f"  {col}={grupo:<10} n={m['n']:<5} infartos={m['infartos']:<4} "
+                  f"recall={m['recall']:.3f}  marcados={m['tasa_marcados']:.1%}{nota}")
+    log.info("Fairness guardado: reportes/fairness.json")
+
     umbrales = {"test_auc": args.auc_threshold, "test_recall": args.recall_threshold,
                 "test_f1": args.f1_threshold}
     reporte = generar_reporte(metricas, cm, umbrales)
@@ -155,9 +209,13 @@ if __name__ == "__main__":
     mlflow.set_experiment(args.experiment_name)
     with mlflow.start_run(run_name="evaluate"):
         mlflow.set_tag("etapa", "evaluate")
-        mlflow.log_metrics({k: v for k, v in metricas.items() if k != "modelo"})
+        mlflow.log_metrics({k: v for k, v in metricas.items() if isinstance(v, (int, float))})
+        mlflow.log_metrics({f"baseline_{k}": v for k, v in baseline.items()})
+        mlflow.log_metrics({f"recall_{col}_{grupo}": m["recall"]
+                            for col, grupos in fairness.items() for grupo, m in grupos.items()})
         mlflow.log_params({k.replace("test_", "") + "_threshold": v for k, v in umbrales.items()})
         mlflow.log_artifact(str(reporte))
+        mlflow.log_dict(fairness, "fairness.json")
 
     # Guardar métricas JSON (las lee la API en /health)
     ARTIFACTS.mkdir(exist_ok=True)

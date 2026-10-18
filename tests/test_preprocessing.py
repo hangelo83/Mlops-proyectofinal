@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from src.data_loader import cargar_datos
+from src.metricas import metricas_por_grupo
 from src.preprocessing import (
     ALL_COLS, imputar_imc, obtener_balanceador, transformar_variables, validar_schema,
 )
@@ -122,6 +123,18 @@ def test_undersampling_iguala_clases():
     y = pd.Series([1] * 10 + [0] * 90)
     _, y_bal = obtener_balanceador('undersampling', 1).fit_resample(X, y)
     assert y_bal.value_counts().tolist() == [10, 10]
+
+
+# ── Fairness por subgrupo (src/metricas.py) ───────────────────────────────────
+
+def test_metricas_por_grupo_recall_y_marcados():
+    grupos = pd.Series(['A'] * 4 + ['B'] * 4)
+    y_true = pd.Series([1, 1, 0, 0, 1, 1, 0, 0])
+    y_pred = [1, 1, 0, 0, 1, 0, 1, 1]
+    r = metricas_por_grupo(grupos, y_true, y_pred)
+    assert r['A']['recall'] == 1.0 and r['B']['recall'] == 0.5
+    assert r['A']['tasa_marcados'] == 0.5 and r['B']['tasa_marcados'] == 0.75
+    assert r['A']['muestra_pequena'] is True   # 2 infartos < MIN_POSITIVOS
 
 
 # ── PSI (drift/run.py, Unidad 9) ──────────────────────────────────────────────
