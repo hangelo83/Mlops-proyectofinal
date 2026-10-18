@@ -18,13 +18,19 @@ El código reutiliza la estructura, las funciones y las librerías del repositor
 2. En la terminal del Codespace (Ctrl+`):
 
 ```bash
-python main.py                                   # las 7 etapas (~1-2 min)
-uvicorn api.app:app --host 0.0.0.0 --port 8000   # API → pestaña PORTS → 8000 → /docs
+python main.py --demo    # todo de punta a punta (~5 min la primera vez, por el build de Docker)
 ```
+
+`--demo` corre las 7 etapas, la demo de drift simulado, el build de la imagen Docker con
+smoke tests contra el contenedor, y deja arriba la UI de MLflow (puerto 5000) y la API
+(puerto 8000, `/docs`) hasta Ctrl+C. En Codespaces ambos puertos aparecen en la pestaña PORTS.
+El reporte de drift que queda en `reportes/` es el del lote simulado.
 
 | Comando | Para qué sirve |
 |---|---|
-| `python main.py` | Ejecuta las 7 etapas en secuencia |
+| `python main.py` | Ejecuta las 7 etapas en secuencia (lo mismo que corre CI) |
+| `python main.py --serve` | Las 7 etapas y luego MLflow UI + API arriba, con smoke tests |
+| `python main.py --steps drift_demo docker` | Solo las etapas opcionales: drift simulado y Docker |
 | `python main.py --steps random_forest evaluate` | Ejecuta solo algunas etapas |
 | `make test` | Tests unitarios y de la API con cobertura |
 | `make mlflow-ui` | UI de MLflow en el puerto 5000 (runs, Model Registry) |

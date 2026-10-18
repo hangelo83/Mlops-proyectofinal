@@ -1,7 +1,7 @@
 # Makefile — Pipeline MLOps End-to-End — Prevención de Infartos
 # Uso: make <target>      Ayuda: make help
 .PHONY: install all lint test pipeline etapa1 etapa2 etapa3 etapa4 etapa5 etapa6 etapa7 \
-        drift-demo comparar versions serve docker-build docker-run docker-stop smoke \
+        demo drift-demo comparar versions serve docker-build docker-run docker-stop smoke \
         preprod-up preprod-down preprod-logs preprod-ps deploy rollback dvc-repro mlflow-ui clean help
 
 COMPOSE_FILE = docker-compose.preprod.yml
@@ -24,6 +24,10 @@ test:
 pipeline:
 	python main.py
 
+# Demo de punta a punta: 7 etapas + drift simulado + Docker + MLflow UI y API arriba
+demo:
+	python main.py --demo
+
 # Etapas individuales
 etapa1: ; python data/run.py
 etapa2: ; python preprocess/run.py
@@ -45,7 +49,8 @@ versions:
 	python src/manage_versions.py
 
 mlflow-ui:
-	mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000
+	mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000 \
+	  --allowed-hosts "localhost:*,127.0.0.1:*,*.app.github.dev"
 
 # ── DVC: mismo pipeline declarado en dvc.yaml (Unidad 3) ──────────────────────
 dvc-repro:
@@ -103,6 +108,7 @@ help:
 	@echo "=== Pipeline MLOps — Prevención de Infartos ==="
 	@echo "  make install       — instalar dependencias"
 	@echo "  make pipeline      — ejecutar las 7 etapas en orden"
+	@echo "  make demo          — 7 etapas + drift simulado + Docker + MLflow UI y API arriba"
 	@echo "  make etapa1..7     — ejecutar una etapa específica"
 	@echo "  make test / lint   — tests unitarios + API / flake8"
 	@echo "  make all           — lint + test + pipeline + docker (igual que CI)"
