@@ -26,6 +26,13 @@ httpx>=0.24            # TestClient de FastAPI
 # Monitoreo
 evidently==0.7.23
 
+# Versionado de datos (dvc repro, Unidad 3)
+dvc==3.67.1
+
+# Notebook de EDA (Jupyter o VS Code)
+ipykernel>=6.0
+notebook>=7.0
+
 # CI/CD
 pytest>=7.0
 pytest-cov>=4.0

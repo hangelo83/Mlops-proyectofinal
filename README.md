@@ -42,6 +42,48 @@ El reporte de drift que queda en `reportes/` es el del lote simulado.
 | `make dvc-repro` | El mismo pipeline, reproducido con DVC |
 | `make help` | Todos los comandos |
 
+## Ejecución local (Windows / Mac / Linux)
+
+**Requisitos**: Python **3.11** (recomendado; es la versión de Codespaces, CI y Docker) y Git.
+Docker es opcional: solo lo usan la etapa `docker` y el stack pre-producción.
+`requirements.txt` instala todo lo necesario: pipeline, MLflow, API, Evidently, DVC, Jupyter y tests.
+
+**Windows (PowerShell)**
+```powershell
+git clone https://github.com/hangelo83/Mlops-proyectofinal.git
+cd Mlops-proyectofinal
+py -3.11 -m venv .venv
+.venv\Scripts\Activate.ps1      # si PowerShell lo bloquea: Set-ExecutionPolicy -Scope Process Bypass
+pip install -r requirements.txt
+python main.py
+```
+
+**Mac / Linux**
+```bash
+git clone https://github.com/hangelo83/Mlops-proyectofinal.git
+cd Mlops-proyectofinal
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+Con el entorno activado:
+
+| Comando | Para qué sirve |
+|---|---|
+| `python main.py` | Las 7 etapas (~1-2 min) |
+| `python main.py --serve` | Además levanta la API en http://localhost:8000/docs y MLflow en http://localhost:5000 (Ctrl+C para detener) |
+| `jupyter notebook notebooks/01_eda_infartos.ipynb` | Abre el notebook de EDA (o ábrelo en VS Code con el kernel de `.venv`) |
+| `pytest tests/ --ignore=tests/smoke` | Tests unitarios y de la API (después de `python main.py`) |
+| `dvc repro` | El mismo pipeline, reproducido con DVC |
+
+Si el puerto 8000 o 5000 ya está ocupado en tu máquina, cámbialo con las variables
+`API_PORT` / `MLFLOW_PORT` (por ejemplo, en PowerShell `$env:API_PORT=8010` y en Bash
+`export API_PORT=8010`) antes de `python main.py --serve`. Los comandos `make` del
+Makefile requieren `make`, que no viene en Windows; cada target equivale a un comando
+`python ...` de la tabla.
+
 ## Pipeline
 
 ```
