@@ -1,0 +1,107 @@
+# docker-compose.preprod.yml — Stack completo de pre-producción (Unidad 8)
+#
+# Uso en Codespace:
+#   docker compose -f docker-compose.preprod.yml up --build
+#   O simplemente: make preprod-up
+#
+# Los puertos 8000 y 5000 se reenvían automáticamente en la pestaña PORTS.
+#
+# Orden de arranque garantizado:
+#   mlflow → trainer (pipeline completo) → api (carga el modelo en Production)
+
+services:
+
+  # ── Servicio 1: MLflow Tracking Server + Model Registry ───────────────────
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.trainer
+    image: infartos-trainer:latest
+    container_name: infartos-mlflow
+    # --artifacts-destination: el servidor guarda y sirve los artefactos, así
+    # trainer y api (contenedores distintos) ven los mismos modelos.
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////mlruns/mlflow.db
+      - --artifacts-destination
+      - /mlruns/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - '5000'
+      - --workers
+      - '1'
+      - --allowed-hosts
+      - localhost:*,127.0.0.1:*,mlflow:*,*.app.github.dev
+    ports:
+      - '${MLFLOW_PORT:-5000}:5000'
+    volumes:
+      - mlruns_vol:/mlruns
+    healthcheck:
+      test: ['CMD', 'python', '-c',
+             'import urllib.request; urllib.request.urlopen("http://localhost:5000/health")']
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 60s
+    networks:
+      - infartos-net
+
+  # ── Servicio 2: Trainer ───────────────────────────────────────────────────
+  # Corre UNA VEZ: ingesta, entrena, valida y promueve el modelo a Production.
+  # Si el quality gate falla (exit 1), la API NO arranca.
+  trainer:
+    image: infartos-trainer:latest
+    container_name: infartos-trainer
+    env_file: .env.preprod
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - artifacts_vol:/app/artifacts
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - infartos-net
+
+  # ── Servicio 3: API FastAPI ───────────────────────────────────────────────
+  # Arranca solo cuando el trainer terminó bien. Carga el modelo desde el
+  # Model Registry (stage Production); si no puede, usa artifacts/.
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.trainer
+    image: infartos-api:latest
+    container_name: infartos-api
+    command: ['uvicorn', 'api.app:app', '--host', '0.0.0.0', '--port', '8000', '--workers', '1']
+    ports:
+      - '${API_PORT:-8000}:8000'
+    env_file: .env.preprod
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - artifacts_vol:/app/artifacts
+    depends_on:
+      trainer:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'python', '-c',
+             'import urllib.request; urllib.request.urlopen("http://localhost:8000/health")']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - infartos-net
+
+# ── Volúmenes compartidos entre servicios ─────────────────────────────────
+volumes:
+  artifacts_vol:  # modelo .pkl, preprocesamiento.json y métricas — trainer → api
+  mlruns_vol:     # base de datos y artefactos de MLflow
+
+networks:
+  infartos-net:
+    driver: bridge

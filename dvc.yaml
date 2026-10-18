@@ -1,0 +1,101 @@
+# dvc.yaml — El mismo pipeline de main.py declarado como DAG para DVC (Unidad 3).
+# DVC solo re-ejecuta una etapa si cambian sus deps o params, y dvc.lock guarda
+# el hash (md5) de cada dato y modelo generado: así se versionan sin subirlos a Git.
+#
+#   dvc repro          # ejecuta lo que cambió
+#   dvc dag            # muestra el grafo de etapas
+#   dvc metrics show   # métricas del último modelo
+stages:
+  download:
+    cmd: python data/run.py
+    deps:
+      - data/run.py
+      - src/data_loader.py
+      - data/raw/dataset_infartos.csv
+    outs:
+      - data/infartos_data_raw.csv
+
+  preprocess:
+    cmd: python preprocess/run.py
+    deps:
+      - preprocess/run.py
+      - src/preprocessing.py
+      - data/infartos_data_raw.csv
+    params:
+      - config.yaml:
+          - main.random_state
+    outs:
+      - data/infartos_data_clean.csv
+      - artifacts/preprocesamiento.json
+
+  segregate:
+    cmd: python segregate/run.py
+    deps:
+      - segregate/run.py
+      - data/infartos_data_clean.csv
+    params:
+      - config.yaml:
+          - data.test_size
+          - main.random_state
+    outs:
+      - data/infartos_train.csv
+      - data/infartos_test.csv
+
+  check_data:
+    cmd: python -m pytest check_data/test_data.py -q --tb=short
+    deps:
+      - check_data/test_data.py
+      - data/infartos_train.csv
+      - data/infartos_test.csv
+
+  random_forest:
+    cmd: python random_forest/run.py
+    deps:
+      - random_forest/run.py
+      - src/preprocessing.py
+      - data/infartos_train.csv
+    params:
+      - config.yaml:
+          - model.tecnica_balanceo
+          - model.n_estimators
+          - model.max_depth
+          - model.min_samples_split
+          - model.n_iter
+          - model.cv_folds
+          - model.scoring
+    outs:
+      - artifacts/modelo_infartos.pkl
+      - artifacts/modelo_registrado.json:
+          cache: false
+
+  evaluate:
+    cmd: python evaluate/run.py
+    deps:
+      - evaluate/run.py
+      - artifacts/modelo_infartos.pkl
+      - data/infartos_test.csv
+    params:
+      - config.yaml:
+          - model.auc_threshold
+          - model.recall_threshold
+          - model.f1_threshold
+          - negocio
+    metrics:
+      - artifacts/eval_metrics.json:
+          cache: false
+    plots:
+      - reportes/reporte_evaluacion.png:
+          cache: false
+
+  drift:
+    cmd: python drift/run.py
+    deps:
+      - drift/run.py
+      - data/infartos_train.csv
+      - data/infartos_test.csv
+    params:
+      - config.yaml:
+          - drift.drift_threshold
+    outs:
+      - reportes/drift_summary.json:
+          cache: false

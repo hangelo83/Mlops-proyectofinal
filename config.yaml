@@ -1,0 +1,59 @@
+# config.yaml — Configuración centralizada del pipeline (patrón Unidad 10)
+# Todos los parámetros en un solo lugar. Los scripts de cada etapa toman de aquí
+# sus valores por defecto (src/config.py) y DVC los usa como params (dvc.yaml).
+# Ejecutar con: python main.py
+
+main:
+  project_name: mlops-infartos
+  experiment_name: prevencion_infartos
+  random_state: 123            # misma semilla del notebook del caso
+
+  # Etapas a ejecutar (comentar las que no se necesiten)
+  execute_steps:
+    - download
+    - preprocess
+    - segregate
+    - check_data
+    - random_forest
+    - evaluate
+    - drift
+
+data:
+  source_path: data/raw/dataset_infartos.csv   # CSV original del caso (sep=';')
+  raw_path:    data/infartos_data_raw.csv
+  clean_path:  data/infartos_data_clean.csv
+  train_path:  data/infartos_train.csv
+  test_path:   data/infartos_test.csv
+  test_size:   0.20
+
+model:
+  model_name:        InfartosRiskModel
+  tecnica_balanceo:  undersampling   # 'smote' | 'undersampling' | 'oversampling' (Unidad 2)
+  n_estimators:      [10, 100, 200]
+  max_depth:         [4, 6, 8]
+  min_samples_split: [2, 10]
+  n_iter:            20               # RandomizedSearchCV (Unidad 6)
+  cv_folds:          5
+  scoring:           f1
+  # Quality gate. Con 1.8% de positivos un F1 de 0.70 es inalcanzable
+  # (el notebook del caso obtiene F1~0.09); lo que importa es no dejar
+  # pasar infartos (recall) y ordenar bien el riesgo (AUC).
+  auc_threshold:     0.80
+  recall_threshold:  0.70
+  f1_threshold:      0.05
+
+negocio:
+  # Supuestos de costo para la aseguradora (USD), igual que COSTO_FN/COSTO_FP de la Unidad 4
+  costo_fn: 20000   # infarto no detectado: UCI + pago de la cobertura
+  costo_fp: 300     # asegurado sano incluido en el programa de prevención
+
+drift:
+  reference_path:  data/infartos_train.csv
+  current_path:    data/infartos_test.csv
+  drift_threshold: 0.30          # alerta si >30% features con drift
+
+serve:
+  host: 0.0.0.0
+  port: 8000
+  model_name: InfartosRiskModel
+  model_stage: Production

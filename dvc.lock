@@ -1,0 +1,184 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: python data/run.py
+    deps:
+    - path: data/raw/dataset_infartos.csv
+      hash: md5
+      md5: d6514153cd4ffc9791c36e3f05ebbbb3
+      size: 2817603
+    - path: data/run.py
+      hash: md5
+      md5: bcf93b539f43fab8f4204ad95e813882
+      size: 1447
+    - path: src/data_loader.py
+      hash: md5
+      md5: af1ed1507413bdcc2b928186d1ebc20c
+      size: 1342
+    outs:
+    - path: data/infartos_data_raw.csv
+      hash: md5
+      md5: 3f7872ff077a92d1498158878fe9c9b8
+      size: 2911563
+  preprocess:
+    cmd: python preprocess/run.py
+    deps:
+    - path: data/infartos_data_raw.csv
+      hash: md5
+      md5: 3f7872ff077a92d1498158878fe9c9b8
+      size: 2911563
+    - path: preprocess/run.py
+      hash: md5
+      md5: 75035a2603eedc8ef46356e5dac7fd04
+      size: 2552
+    - path: src/preprocessing.py
+      hash: md5
+      md5: f02492e82c31609506b4598d739a6033
+      size: 4844
+    params:
+      config.yaml:
+        main.random_state: 123
+    outs:
+    - path: artifacts/preprocesamiento.json
+      hash: md5
+      md5: 68139dcaa57cb309aae2067251ffa644
+      size: 240
+    - path: data/infartos_data_clean.csv
+      hash: md5
+      md5: 029476fcfa61f3760cd9b1fa99f79735
+      size: 991623
+  segregate:
+    cmd: python segregate/run.py
+    deps:
+    - path: data/infartos_data_clean.csv
+      hash: md5
+      md5: 029476fcfa61f3760cd9b1fa99f79735
+      size: 991623
+    - path: segregate/run.py
+      hash: md5
+      md5: 8090e344c5689c447894e1ca326a0eef
+      size: 2141
+    params:
+      config.yaml:
+        data.test_size: 0.2
+        main.random_state: 123
+    outs:
+    - path: data/infartos_test.csv
+      hash: md5
+      md5: 57d037a3f285ecdb0fc0f7d76888decb
+      size: 198419
+    - path: data/infartos_train.csv
+      hash: md5
+      md5: 8d32255afcc2a9108f6e5668700fd1a6
+      size: 793341
+  check_data:
+    cmd: python -m pytest check_data/test_data.py -q --tb=short
+    deps:
+    - path: check_data/test_data.py
+      hash: md5
+      md5: 9ada4fb7d4ca1bf036af50bf732c96ed
+      size: 3535
+    - path: data/infartos_test.csv
+      hash: md5
+      md5: 57d037a3f285ecdb0fc0f7d76888decb
+      size: 198419
+    - path: data/infartos_train.csv
+      hash: md5
+      md5: 8d32255afcc2a9108f6e5668700fd1a6
+      size: 793341
+  random_forest:
+    cmd: python random_forest/run.py
+    deps:
+    - path: data/infartos_train.csv
+      hash: md5
+      md5: 8d32255afcc2a9108f6e5668700fd1a6
+      size: 793341
+    - path: random_forest/run.py
+      hash: md5
+      md5: 8c03ecc7d4f2ad090ff1d53a2bbd314d
+      size: 8080
+    - path: src/preprocessing.py
+      hash: md5
+      md5: f02492e82c31609506b4598d739a6033
+      size: 4844
+    params:
+      config.yaml:
+        model.cv_folds: 5
+        model.max_depth:
+        - 4
+        - 6
+        - 8
+        model.min_samples_split:
+        - 2
+        - 10
+        model.n_estimators:
+        - 10
+        - 100
+        - 200
+        model.n_iter: 20
+        model.scoring: f1
+        model.tecnica_balanceo: undersampling
+    outs:
+    - path: artifacts/modelo_infartos.pkl
+      hash: md5
+      md5: 244db40344a7f5497f72953b5d15963c
+      size: 118890
+    - path: artifacts/modelo_registrado.json
+      hash: md5
+      md5: 15a349140afdf6152bdb332acf37cc73
+      size: 176
+  evaluate:
+    cmd: python evaluate/run.py
+    deps:
+    - path: artifacts/modelo_infartos.pkl
+      hash: md5
+      md5: 244db40344a7f5497f72953b5d15963c
+      size: 118890
+    - path: data/infartos_test.csv
+      hash: md5
+      md5: 57d037a3f285ecdb0fc0f7d76888decb
+      size: 198419
+    - path: evaluate/run.py
+      hash: md5
+      md5: 4248773ba4b644ac0da8049f0cb801ba
+      size: 8426
+    params:
+      config.yaml:
+        model.auc_threshold: 0.8
+        model.f1_threshold: 0.05
+        model.recall_threshold: 0.7
+        negocio:
+          costo_fn: 20000
+          costo_fp: 300
+    outs:
+    - path: artifacts/eval_metrics.json
+      hash: md5
+      md5: b8cddd4876f5d9f0ff917e7f86ccaee4
+      size: 257
+    - path: reportes/reporte_evaluacion.png
+      hash: md5
+      md5: 956e0e4f7c460ee0c033667d509d1311
+      size: 54758
+  drift:
+    cmd: python drift/run.py
+    deps:
+    - path: data/infartos_test.csv
+      hash: md5
+      md5: 57d037a3f285ecdb0fc0f7d76888decb
+      size: 198419
+    - path: data/infartos_train.csv
+      hash: md5
+      md5: 8d32255afcc2a9108f6e5668700fd1a6
+      size: 793341
+    - path: drift/run.py
+      hash: md5
+      md5: bbee66eee49cf6537669805f7c6bf77d
+      size: 6807
+    params:
+      config.yaml:
+        drift.drift_threshold: 0.3
+    outs:
+    - path: reportes/drift_summary.json
+      hash: md5
+      md5: 0ff5b96c72bea931a0ec7b616cbe7ba5
+      size: 786

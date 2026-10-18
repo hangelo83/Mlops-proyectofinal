@@ -1,0 +1,17 @@
+# .gitignore — se versiona el código y el CSV crudo (data/raw/);
+# todo lo que genera el pipeline se reconstruye con: python main.py
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.env
+
+# Salidas del pipeline (las versiona DVC vía dvc.lock)
+artifacts/
+reportes/
+mlruns/
+mlartifacts/
+mlflow.db

@@ -1,0 +1,130 @@
+# .github/workflows/ml_pipeline.yml — CI/CD del pipeline MLOps (Unidades 7 y 10)
+#
+# Job 1 lint-and-test → Job 2 ml-pipeline (7 etapas + quality gate) → Job 3 build-docker
+# Si el quality gate de evaluate falla, el Job 2 falla y no se construye la imagen.
+name: ML Pipeline CI/CD — Prevención de Infartos
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # permite ejecutar manualmente desde la pestaña Actions
+
+env:
+  PYTHON_VERSION: '3.11'
+  IMAGE_NAME: infartos-api
+
+jobs:
+
+  # ── JOB 1: Lint y tests unitarios ─────────────────────────────────────────
+  lint-and-test:
+    name: Lint + Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Linting con flake8
+        run: flake8 .
+
+      - name: Tests unitarios con pytest
+        run: pytest tests/test_preprocessing.py --cov=src --cov-report=term-missing
+
+  # ── JOB 2: Pipeline completo de 7 etapas ──────────────────────────────────
+  ml-pipeline:
+    name: Pipeline MLOps (7 etapas)
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Etapa 1 — Ingesta del dataset
+        run: python main.py --steps download
+      - name: Etapa 2 — Preprocesar datos
+        run: python main.py --steps preprocess
+      - name: Etapa 3 — Segregar train/test
+        run: python main.py --steps segregate
+      - name: Etapa 4 — Validar datos con pytest
+        run: python main.py --steps check_data
+      - name: Etapa 5 — Entrenar Random Forest + MLflow
+        run: python main.py --steps random_forest
+      - name: Etapa 6 — Evaluar modelo (quality gate)
+        run: python main.py --steps evaluate
+      - name: Etapa 7 — Detección de drift
+        run: python main.py --steps drift
+
+      - name: Tests de la API con el modelo entrenado
+        run: pytest tests/test_api.py
+
+      - name: Subir artefactos del modelo
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: artifacts/
+
+      - name: Subir reportes y tracking MLflow
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-${{ github.run_number }}
+          path: |
+            reportes/
+            mlflow.db
+            pipeline_run.log
+          retention-days: 30
+
+  # ── JOB 3: Build Docker + smoke tests del contenedor ──────────────────────
+  build-docker:
+    name: Build Docker + Smoke tests
+    runs-on: ubuntu-latest
+    needs: ml-pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descargar artefactos del modelo
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifacts
+          path: artifacts/
+
+      - name: Build de la imagen Docker
+        run: docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} -t ${{ env.IMAGE_NAME }}:latest .
+
+      - name: Levantar el contenedor
+        run: |
+          docker run -d --name api-test -p 8000:8000 ${{ env.IMAGE_NAME }}:latest
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Smoke tests contra el contenedor
+        run: |
+          pip install pytest
+          pytest tests/smoke/ -v --tb=short
+
+      - name: Logs del contenedor
+        if: always()
+        run: docker logs api-test

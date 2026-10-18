@@ -1,0 +1,5 @@
+# Finales de línea LF en todas las plataformas (Codespaces/CI son Linux)
+* text=auto eol=lf
+# El CSV se guarda byte a byte: su md5 está registrado en dvc.lock
+*.csv -text
+*.png binary

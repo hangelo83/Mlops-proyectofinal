@@ -1,0 +1,17 @@
+.git/
+.github/
+.venv/
+.dvc/cache/
+.dvc/tmp/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+*.log
+mlruns/
+mlflow.db
+reportes/
+notebooks/
+docs/
+data/infartos_*.csv
+.env

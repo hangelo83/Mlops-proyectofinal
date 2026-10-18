@@ -1,0 +1,32 @@
+# requirements.txt — Pipeline MLOps Prevención de Infartos
+# Instalar: pip install -r requirements.txt
+# Misma versión en el Codespace, en GitHub Actions y en Docker (Unidad 8):
+# el modelo .pkl solo carga bien con la misma versión de scikit-learn / imbalanced-learn.
+
+# ML
+numpy>=1.23
+pandas>=2.0
+scikit-learn==1.9.1
+imbalanced-learn==0.14.2
+scipy>=1.9
+matplotlib>=3.6
+
+# MLflow
+mlflow==3.17.1
+
+# Configuración
+pyyaml>=6.0
+
+# API
+fastapi>=0.100
+uvicorn[standard]>=0.22
+pydantic>=2.0
+httpx>=0.24            # TestClient de FastAPI
+
+# Monitoreo
+evidently==0.7.23
+
+# CI/CD
+pytest>=7.0
+pytest-cov>=4.0
+flake8>=6.0

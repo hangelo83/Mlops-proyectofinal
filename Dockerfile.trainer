@@ -1,0 +1,24 @@
+# Dockerfile.trainer — Imagen con el pipeline completo (Unidad 8)
+# Usada por docker-compose.preprod.yml para los servicios mlflow, trainer y api.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Idéntico a Dockerfile: comparte la capa de pip install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+LABEL maintainer="MLOps Prevención de Infartos"
+LABEL description="Trainer: ejecuta las 7 etapas del pipeline"
+LABEL version="1.0.0"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Código del pipeline + dataset crudo (data/raw/). Ver .dockerignore.
+COPY . .
+
+# Por defecto ejecuta el pipeline completo. Si el quality gate falla → exit 1
+# y la API del stack pre-prod no arranca.
+CMD ["python", "main.py"]

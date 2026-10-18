@@ -1,0 +1,69 @@
+# .github/workflows/monitoreo_drift.yml — Monitoreo de drift (Unidad 9)
+# Se ejecuta automáticamente cada lunes a las 8am UTC y manualmente desde Actions.
+# Si hay drift significativo el job falla y GitHub notifica por email.
+
+name: Monitoreo Drift — Prevención de Infartos
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      simular_drift:
+        description: 'Simular un lote con drift (demo de la alerta)'
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  monitoreo-drift:
+    name: Pipeline de Monitoreo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Preparar referencia y lote actual (etapas 1-3)
+        run: python main.py --steps download preprocess segregate
+
+      - name: Detección de drift (Evidently + PSI)
+        run: |
+          if [ "${{ github.event.inputs.simular_drift }}" = "true" ]; then
+            python drift/run.py --simular_drift
+          else
+            python drift/run.py
+          fi
+
+      - name: Subir reportes como artefactos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-drift-${{ github.run_number }}
+          path: |
+            reportes/drift_report.html
+            reportes/psi_barras.png
+            reportes/drift_summary.json
+          retention-days: 30
+
+      - name: Resumen del monitoreo
+        if: always()
+        run: |
+          echo "## Reporte de Monitoreo de Drift" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat reportes/drift_summary.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Quality gate de monitoreo
+        run: |
+          python -c "import json,sys; r=json.load(open('reportes/drift_summary.json')); \
+          print('Drift detectado:', r['drift_detectado']); \
+          sys.exit(1 if r['drift_detectado'] else 0)"
