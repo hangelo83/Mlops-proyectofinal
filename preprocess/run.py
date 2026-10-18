@@ -57,12 +57,12 @@ if __name__ == "__main__":
     df = df[ALL_COLS]
     validar_schema(df)
 
-    df.to_csv(args.output, index=False)
+    df.to_csv(args.output, index=False, lineterminator="\n")
     log.info("Dataset limpio guardado: %s (%d filas)", args.output, len(df))
 
     # Parámetros que la API necesita para transformar cada paciente igual que aquí
     ARTIFACTS.mkdir(exist_ok=True)
     prepro = {"imc_avg": round(imc_avg, 4), "imc_std": round(imc_std, 4), "features": FEATURES}
-    with open(ARTIFACTS / "preprocesamiento.json", "w") as f:
+    with open(ARTIFACTS / "preprocesamiento.json", "w", newline="\n") as f:
         json.dump(prepro, f, indent=2)
     log.info("Parámetros guardados: artifacts/preprocesamiento.json")

@@ -50,8 +50,8 @@ if __name__ == "__main__":
     df_train = pd.concat([X_train, y_train], axis=1)
     df_test  = pd.concat([X_test,  y_test],  axis=1)
 
-    df_train.to_csv(args.train_out, index=False)
-    df_test.to_csv(args.test_out,   index=False)
+    df_train.to_csv(args.train_out, index=False, lineterminator="\n")
+    df_test.to_csv(args.test_out,   index=False, lineterminator="\n")
 
     log.info("Train : %d filas | Tasa infartos: %.2f%%", len(df_train), df_train[TARGET].mean()*100)
     log.info("Test  : %d filas | Tasa infartos: %.2f%%", len(df_test),  df_test[TARGET].mean()*100)

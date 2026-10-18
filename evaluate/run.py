@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     # Guardar métricas JSON (las lee la API en /health)
     ARTIFACTS.mkdir(exist_ok=True)
-    with open(ARTIFACTS / "eval_metrics.json", "w") as f:
+    with open(ARTIFACTS / "eval_metrics.json", "w", newline="\n") as f:
         json.dump(metricas, f, indent=2)
     log.info("Métricas guardadas: artifacts/eval_metrics.json")
 

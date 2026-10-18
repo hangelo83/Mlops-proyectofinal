@@ -166,7 +166,7 @@ if __name__ == "__main__":
         pickle.dump(mejor["modelo"], f)
 
     # Guardar referencia al registro para la etapa evaluate
-    with open(ARTIFACTS / "modelo_registrado.json", "w") as f:
+    with open(ARTIFACTS / "modelo_registrado.json", "w", newline="\n") as f:
         json.dump({"run_id": mejor["run_id"], "model_name": args.model_name,
                    "version": str(version), "metodo_busqueda": mejor["metodo"],
                    "cv_score": mejor["cv_score"]}, f, indent=2)

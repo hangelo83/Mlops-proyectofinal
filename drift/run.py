@@ -150,7 +150,7 @@ if __name__ == "__main__":
                "total_features": len(FEATURES), "share_drifted": round(drift_share, 4),
                "umbral": args.drift_threshold, "metodo": metodo, "psi_critico": psi_critico,
                "psi": {c: {"valor": v, "estado": clasificar_psi(v)} for c, v in psis.items()}}
-    with open(REPORTS / "drift_summary.json", "w", encoding="utf-8") as f:
+    with open(REPORTS / "drift_summary.json", "w", encoding="utf-8", newline="\n") as f:
         json.dump(resumen, f, indent=2, ensure_ascii=False)
 
     print(f"\n  Drift detectado    : {drift_det}")

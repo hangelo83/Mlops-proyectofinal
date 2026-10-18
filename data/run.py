@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     output = Path(args.output)
     output.parent.mkdir(exist_ok=True)
-    df.to_csv(output, index=False)
+    df.to_csv(output, index=False, lineterminator="\n")
 
     log.info("Dataset guardado: %s", output)
     log.info("Shape: %d filas x %d columnas", *df.shape)
