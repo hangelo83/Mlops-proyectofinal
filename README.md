@@ -171,6 +171,7 @@ Otros ajustes:
 ├── api/                     FastAPI
 ├── tests/                   unitarios, API y smoke
 ├── notebooks/01_eda_infartos.ipynb   análisis exploratorio del caso
+├── docs/presentacion_mlops_infartos.pptx   presentación final (10 láminas, con notas del orador)
 ├── dvc.yaml · dvc.lock      pipeline DVC
 ├── Dockerfile · Dockerfile.trainer · docker-compose.preprod.yml · deploy.sh
 └── .github/workflows/       CI/CD y monitoreo de drift
