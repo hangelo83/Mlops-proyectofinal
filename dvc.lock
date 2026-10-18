@@ -101,8 +101,8 @@ stages:
       size: 758620
     - path: random_forest/run.py
       hash: md5
-      md5: 217535515e6817f316d7baa88857c741
-      size: 8094
+      md5: 7daa3a7378fea37c35a68e54a984c613
+      size: 11586
       isexec: true
     - path: src/preprocessing.py
       hash: md5
@@ -127,6 +127,14 @@ stages:
         model.scoring: f1
         model.tecnica_balanceo: undersampling
     outs:
+    - path: artifacts/comparativa_modelos.json
+      hash: md5
+      md5: 867ae4e200160b104bae8a6443f55c78
+      size: 753
+    - path: artifacts/modelo_baseline.pkl
+      hash: md5
+      md5: 8fe80af1a0f8885c35f5b049b0066e3f
+      size: 11585
     - path: artifacts/modelo_infartos.pkl
       hash: md5
       md5: f846ad9ce3dd7cae835ad6ca7c7c0d62
@@ -134,18 +142,31 @@ stages:
   evaluate:
     cmd: python evaluate/run.py
     deps:
+    - path: artifacts/modelo_baseline.pkl
+      hash: md5
+      md5: 8fe80af1a0f8885c35f5b049b0066e3f
+      size: 11585
     - path: artifacts/modelo_infartos.pkl
       hash: md5
       md5: f846ad9ce3dd7cae835ad6ca7c7c0d62
       size: 118924
+    - path: data/infartos_data_raw.csv
+      hash: md5
+      md5: 399a3d4e2f43899e889be985017149fe
+      size: 2868162
     - path: data/infartos_test.csv
       hash: md5
       md5: 754ea6a336978b2be1fbf46484d78e32
       size: 189738
     - path: evaluate/run.py
       hash: md5
-      md5: 468e855446720239eb108633429c6494
-      size: 8440
+      md5: cbc8243e08139cfeb4d2fa309eb7516e
+      size: 11354
+      isexec: true
+    - path: src/metricas.py
+      hash: md5
+      md5: e6fc75e5930f8bdd83b7dcbdd2260a0a
+      size: 1865
       isexec: true
     params:
       config.yaml:
@@ -158,8 +179,12 @@ stages:
     outs:
     - path: artifacts/eval_metrics.json
       hash: md5
-      md5: 61daf7c9ecb92f772b2da093d4d7f6c3
-      size: 245
+      md5: 1e5a7baa841549f07ea0454318323e01
+      size: 369
+    - path: reportes/fairness.json
+      hash: md5
+      md5: 4c5f7d586ff33e683378a6e05145ebae
+      size: 902
   drift:
     cmd: python drift/run.py
     deps:
